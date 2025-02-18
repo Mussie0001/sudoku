@@ -103,13 +103,13 @@ fun SudokuGame() {
 
     // determines if a user won -- board is filled and valid
     fun isWin(): Boolean {
-        // Ensure every cell is filled.
+        // every cell has a value
         for (r in 0 until 9) {
             for (c in 0 until 9) {
                 if (board[r][c] == null) return false
             }
         }
-        // loop through each row
+        // check for duplicates in row
         for (r in 0 until 9) {
             val seen = mutableSetOf<Int>()
             for (c in 0 until 9) {
@@ -118,7 +118,7 @@ fun SudokuGame() {
                 seen.add(v)
             }
         }
-        // loop through each column
+        // check for duplicates in column
         for (c in 0 until 9) {
             val seen = mutableSetOf<Int>()
             for (r in 0 until 9) {
@@ -127,7 +127,7 @@ fun SudokuGame() {
                 seen.add(v)
             }
         }
-        // looping through each block
+        // check for duplicates in 3x3 blocks
         for (blockRow in 0 until 3) {
             for (blockCol in 0 until 3) {
                 val seen = mutableSetOf<Int>()
