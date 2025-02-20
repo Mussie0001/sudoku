@@ -44,7 +44,7 @@ class MainActivity : ComponentActivity() {
 
 @Composable
 fun SudokuGame() {
-    // snackbar for win/error messages
+    // snackbar for win/error messages & coroutine scope
     val snackbarHostState = remember { SnackbarHostState() }
     val scope = rememberCoroutineScope()
 
@@ -58,7 +58,7 @@ fun SudokuGame() {
             repeat(8) { add(List(9) { null }.toMutableStateList()) }
         }
     }
-    val lockedCells: SnapshotStateList<SnapshotStateList<Boolean>> = remember {
+    val immutableCells: SnapshotStateList<SnapshotStateList<Boolean>> = remember {
         mutableStateListOf<SnapshotStateList<Boolean>>().apply {
             // first row cannot be edited
             add(List(9) { true }.toMutableStateList())
@@ -67,11 +67,9 @@ fun SudokuGame() {
         }
     }
 
-    // state for the selected cell [row, col] for input
-    var selectedCell by remember { mutableStateOf<Pair<Int, Int>?>(null) }
-    // input dialog state
-    var showDialog by remember { mutableStateOf(false) }
-    // user input text
+    // state for the selected cell [row, col] for input, input dialogue state & user input text
+    var currentCell by remember { mutableStateOf<Pair<Int, Int>?>(null) }
+    var inputDialog by remember { mutableStateOf(false) }
     var inputText by remember { mutableStateOf("") }
 
     // board reset function
@@ -176,7 +174,7 @@ fun SudokuGame() {
                     val col = index % 9
                     // number from the board
                     val cellValue = board[row][col]
-                    val isLocked = lockedCells[row][col]
+                    val isLocked = immutableCells[row][col]
                     Box(
                         modifier = Modifier
                             .aspectRatio(1f)
@@ -186,9 +184,9 @@ fun SudokuGame() {
                             )
                             // allow user to re-enter a value if not in the first row
                             .clickable(enabled = !isLocked) {
-                                selectedCell = row to col
+                                currentCell = row to col
                                 inputText = cellValue?.toString() ?: ""
-                                showDialog = true
+                                inputDialog = true
                             },
                         contentAlignment = Alignment.Center
                     ) {
@@ -203,11 +201,11 @@ fun SudokuGame() {
         }
     }
 
-    // input dialogue for entering a number
-    if (showDialog && selectedCell != null) {
+    // input dialogue for entering a number or resetting a tile to edit solution
+    if (inputDialog && currentCell != null) {
         AlertDialog(
-            onDismissRequest = { showDialog = false },
-            title = { Text("Enter a number (1-9)") },
+            onDismissRequest = { inputDialog = false },
+            title = { Text("Enter a number (1-9) or leave blank to clear") },
             text = {
                 TextField(
                     value = inputText,
@@ -223,23 +221,29 @@ fun SudokuGame() {
             confirmButton = {
                 Button(
                     onClick = {
-                        val number = inputText.toIntOrNull()
-                        if (number != null && selectedCell != null) {
-                            val (row, col) = selectedCell!!
-                            // move validation
-                            if (validMove(row, col, number)) {
-                                board[row][col] = number
-                                showDialog = false
-                                selectedCell = null
-                                // check for win after each valid turn
-                                if (isWin()) {
-                                    scope.launch {
-                                        snackbarHostState.showSnackbar("You won!")
+                        // move validation
+                        val (row, col) = currentCell!!
+                        if (inputText.isEmpty()) {
+                            board[row][col] = null
+                            inputDialog = false
+                            currentCell = null
+                        } else {
+                            val number = inputText.toIntOrNull()
+                            if (number != null) {
+                                if (validMove(row, col, number)) {
+                                    board[row][col] = number
+                                    inputDialog = false
+                                    currentCell = null
+                                    // check for win after each valid turn
+                                    if (isWin()) {
+                                        scope.launch {
+                                            snackbarHostState.showSnackbar("You won!")
+                                        }
                                     }
-                                }
-                            } else {
-                                scope.launch {
-                                    snackbarHostState.showSnackbar("Invalid move")
+                                } else {
+                                    scope.launch {
+                                        snackbarHostState.showSnackbar("Invalid move")
+                                    }
                                 }
                             }
                         }
@@ -251,8 +255,8 @@ fun SudokuGame() {
             dismissButton = {
                 Button(
                     onClick = {
-                        showDialog = false
-                        selectedCell = null
+                        inputDialog = false
+                        currentCell = null
                     }
                 ) {
                     Text("Cancel")
